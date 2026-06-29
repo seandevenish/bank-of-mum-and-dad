@@ -141,6 +141,8 @@ function messageFor(err: unknown): string {
         return 'Password should be at least 6 characters.'
       case 'auth/invalid-email':
         return 'Please enter a valid email address.'
+      case 'auth/operation-not-allowed':
+        return 'Email/password sign-in is not enabled for this project. Use Google, or enable it in Firebase.'
       case 'auth/popup-closed-by-user':
       case 'auth/cancelled-popup-request':
         return 'Sign-in was cancelled.'
