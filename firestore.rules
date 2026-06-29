@@ -1,0 +1,12 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Locked down by default for Stage 1. Household-scoped access rules
+    // (allow members of a household to read/write that household's data)
+    // are added in Stage 2 alongside auth.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
