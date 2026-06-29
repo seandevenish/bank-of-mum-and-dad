@@ -9,6 +9,8 @@ export interface AuthState {
   profile: UserProfile | null
   /** The household this user belongs to. */
   household: Household | null
+  /** Set when loading/creating the household failed (e.g. Firestore not reachable). */
+  householdError: string | null
   /** True while the initial auth state / household load is in flight. */
   loading: boolean
   signInWithGoogle: () => Promise<void>
