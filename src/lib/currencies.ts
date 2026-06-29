@@ -22,4 +22,48 @@ export const CURRENCIES: CurrencyOption[] = [
   { code: 'INR', label: 'INR — Indian Rupee' },
 ]
 
-export const DEFAULT_CURRENCY = 'GBP'
+/** Hard fallback when the user's region is unknown or unsupported. */
+export const DEFAULT_CURRENCY = 'USD'
+
+/**
+ * Region → currency for the currencies we support. An email address carries no
+ * location, so we infer the region from the browser locale (e.g. `en-GB` → GB).
+ */
+const REGION_CURRENCY: Record<string, string> = {
+  GB: 'GBP',
+  US: 'USD',
+  AU: 'AUD',
+  NZ: 'NZD',
+  CA: 'CAD',
+  CH: 'CHF',
+  SG: 'SGD',
+  ZA: 'ZAR',
+  IN: 'INR',
+  // Eurozone
+  AT: 'EUR', BE: 'EUR', CY: 'EUR', DE: 'EUR', EE: 'EUR', ES: 'EUR', FI: 'EUR',
+  FR: 'EUR', GR: 'EUR', IE: 'EUR', IT: 'EUR', LT: 'EUR', LU: 'EUR', LV: 'EUR',
+  MT: 'EUR', NL: 'EUR', PT: 'EUR', SI: 'EUR', SK: 'EUR',
+}
+
+function detectRegion(): string | null {
+  const lang = typeof navigator !== 'undefined' ? navigator.language : undefined
+  if (!lang) return null
+  try {
+    const region = new Intl.Locale(lang).region
+    if (region) return region.toUpperCase()
+  } catch {
+    // Intl.Locale unsupported — fall through to manual parse.
+  }
+  const parts = lang.split('-')
+  return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : null
+}
+
+/**
+ * Best-guess default currency from the browser's region, limited to the
+ * supported set, defaulting to {@link DEFAULT_CURRENCY} (USD) when unknown.
+ */
+export function detectDefaultCurrency(): string {
+  const region = detectRegion()
+  const code = region ? REGION_CURRENCY[region] : undefined
+  return code && CURRENCIES.some((c) => c.code === code) ? code : DEFAULT_CURRENCY
+}

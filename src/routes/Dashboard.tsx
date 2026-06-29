@@ -174,10 +174,10 @@ export function Dashboard() {
                   key={group.id}
                   className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
                 >
-                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                  <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100/70 px-4 py-3">
                     <div>
-                      <h3 className="font-semibold">{group.name}</h3>
-                      <p className="text-xs text-slate-400">
+                      <h3 className="text-base font-bold text-slate-900">{group.name}</h3>
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                         {formatGroupTotals(groupAccounts, balances)} total
                       </p>
                     </div>
