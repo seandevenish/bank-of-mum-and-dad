@@ -7,12 +7,19 @@ import { useTransactions } from '../features/transactions/useTransactions'
 import { deleteTransaction } from '../features/transactions/api'
 import { TransactionFormModal } from '../features/transactions/TransactionFormModal'
 import { TransactionList } from '../features/transactions/TransactionList'
+import { useRecurringRules } from '../features/recurring/useRecurringRules'
+import { deleteRecurringRule, updateRecurringRule } from '../features/recurring/api'
+import { RecurringRuleFormModal } from '../features/recurring/RecurringRuleFormModal'
+import { RecurringRulesList } from '../features/recurring/RecurringRulesList'
 import { LoadingScreen } from '../components/LoadingScreen'
 import { logError } from '../lib/log'
 import { formatMoney } from '../lib/money'
-import type { Transaction } from '../types/models'
+import type { RecurringRule, Transaction } from '../types/models'
 
-type ModalState = { type: 'none' } | { type: 'txn'; transaction?: Transaction }
+type ModalState =
+  | { type: 'none' }
+  | { type: 'txn'; transaction?: Transaction }
+  | { type: 'rule'; rule?: RecurringRule }
 
 export function AccountDetail() {
   const { accountId = '' } = useParams()
@@ -21,6 +28,7 @@ export function AccountDetail() {
   const { groups, loading: groupsLoading, error: groupsError } = useGroups()
   const { accounts, loading: accountsLoading, error: accountsError } = useAccounts()
   const { transactions, loading: txnsLoading, error: txnsError } = useTransactions()
+  const { rules, loading: rulesLoading, error: rulesError } = useRecurringRules()
   const [modal, setModal] = useState<ModalState>({ type: 'none' })
 
   const account = useMemo(() => accounts.find((a) => a.id === accountId), [accounts, accountId])
@@ -31,6 +39,10 @@ export function AccountDetail() {
   const accountTxns = useMemo(
     () => transactions.filter((t) => t.accountId === accountId),
     [transactions, accountId],
+  )
+  const accountRules = useMemo(
+    () => rules.filter((r) => r.accountId === accountId),
+    [rules, accountId],
   )
   const balanceMinor = useMemo(
     () =>
@@ -50,8 +62,32 @@ export function AccountDetail() {
     }
   }
 
-  const loading = groupsLoading || accountsLoading || txnsLoading
-  const error = groupsError ?? accountsError ?? txnsError
+  async function handleToggleRule(rule: RecurringRule) {
+    try {
+      await updateRecurringRule(householdId, rule.id, { active: !rule.active })
+    } catch (err) {
+      logError('Failed to toggle recurring rule', err, { HouseholdId: householdId, RuleId: rule.id })
+      window.alert('Could not update the recurring transaction. Please try again.')
+    }
+  }
+
+  async function handleDeleteRule(rule: RecurringRule) {
+    if (
+      !window.confirm(
+        `Delete the recurring “${rule.description}”? Transactions already posted will stay.`,
+      )
+    )
+      return
+    try {
+      await deleteRecurringRule(householdId, rule.id)
+    } catch (err) {
+      logError('Failed to delete recurring rule', err, { HouseholdId: householdId, RuleId: rule.id })
+      window.alert('Could not delete the recurring transaction. Please try again.')
+    }
+  }
+
+  const loading = groupsLoading || accountsLoading || txnsLoading || rulesLoading
+  const error = groupsError ?? accountsError ?? txnsError ?? rulesError
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -106,6 +142,33 @@ export function AccountDetail() {
               </button>
             </div>
 
+            <div className="mb-6">
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-500">Recurring</h2>
+                <button
+                  type="button"
+                  onClick={() => setModal({ type: 'rule' })}
+                  className="rounded-lg px-2 py-1 text-sm font-medium text-blue-700 hover:bg-blue-50"
+                >
+                  + Add recurring
+                </button>
+              </div>
+              {accountRules.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-4 text-sm text-slate-400">
+                  No recurring transactions. Add one to auto-post pocket money on a schedule.
+                </p>
+              ) : (
+                <RecurringRulesList
+                  rules={accountRules}
+                  currency={account.currency}
+                  onEdit={(rule) => setModal({ type: 'rule', rule })}
+                  onToggleActive={(rule) => void handleToggleRule(rule)}
+                  onDelete={(rule) => void handleDeleteRule(rule)}
+                />
+              )}
+            </div>
+
+            <h2 className="mb-2 text-sm font-semibold text-slate-500">Transactions</h2>
             <TransactionList
               transactions={accountTxns}
               openingBalanceMinor={account.openingBalanceMinor}
@@ -124,6 +187,16 @@ export function AccountDetail() {
           accountId={account.id}
           currency={account.currency}
           transaction={modal.transaction}
+          onClose={() => setModal({ type: 'none' })}
+        />
+      )}
+      {modal.type === 'rule' && account && (
+        <RecurringRuleFormModal
+          householdId={householdId}
+          createdByUid={user!.uid}
+          accountId={account.id}
+          currency={account.currency}
+          rule={modal.rule}
           onClose={() => setModal({ type: 'none' })}
         />
       )}

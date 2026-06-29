@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { isFirebaseConfigured } from './firebase/config'
 import { AuthProvider } from './features/auth/AuthProvider'
 import { ProtectedRoute } from './features/auth/ProtectedRoute'
+import { RecurringCatchUp } from './features/recurring/RecurringCatchUp'
 import { SignInPage } from './features/auth/SignInPage'
 import { Dashboard } from './routes/Dashboard'
 import { AccountDetail } from './routes/AccountDetail'
@@ -12,6 +13,7 @@ export default function App() {
 
   return (
     <AuthProvider>
+      <RecurringCatchUp />
       <BrowserRouter>
         <Routes>
           <Route path="/sign-in" element={<SignInPage />} />

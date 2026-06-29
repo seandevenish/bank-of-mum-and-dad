@@ -13,13 +13,13 @@
 | 1 · Scaffolding | ✅ done |
 | 2 · Firebase + Auth | ✅ done & verified against live project |
 | 3 · Groups & Accounts (incl. per-account currency) | ✅ done & verified |
-| 4 · Transactions | ✅ done (build/lint/test green; awaiting interactive verify) |
-| 5 · Recurring transactions | ⬜ **next** |
-| 6 · Members, roles & invites (multi-parent) | ⬜ |
+| 4 · Transactions | ✅ done & verified |
+| 5 · Recurring transactions | ✅ done (build/lint/test green; awaiting interactive verify) |
+| 6 · Members, roles & invites (multi-parent) | ⬜ **next** |
 | 7 · PWA polish + deploy | ⬜ |
 | 8 · Native apps (Capacitor) | ⬜ optional |
 
-**Next action:** verify Stage 4 interactively, then begin **Stage 5 (Recurring transactions)**.
+**Next action:** verify Stage 5 interactively, then begin **Stage 6 (Members, roles & invites)**.
 
 ---
 
@@ -114,9 +114,18 @@ toggle), `TransactionList` (running balance per row). `src/lib/dates.ts` added (
 in per-group/per-currency totals, with account rows linking to the detail page. No rules change
 (subcollection covered by the `{document=**}` wildcard).
 
-**Stage 5 — Recurring transactions ⬜** — recurring rule CRUD (pocket-money setup: amount + interval
-+ anchor date); client-side catch-up engine in `src/lib/recurring.ts` run on app load, posting due
-transactions with deterministic IDs (idempotent across devices). Unit-test the engine.
+**Stage 5 — Recurring transactions ✅** — `src/lib/recurring.ts` (+ tests): pure, tz-safe scheduling
+(`computeDueDates`, `nextOccurrence`; monthly preserves the anchor day with no drift; backlog capped
+at `MAX_CATCHUP_POSTS` = 366). `src/features/recurring/`: `api.ts` (CRUD + `runRecurringCatchUp`,
+which batches due posts with deterministic ids `${ruleId}_${date}` and advances `nextRunDate`/
+`lastRunDate` — idempotent across devices), `useRecurringRules`, `RecurringRuleFormModal` (Money
+in/out, interval, start date; runs an immediate catch-up on create so back-dated rules post at once),
+`RecurringRulesList` (pause/resume/edit/delete, shows next run date), and `RecurringCatchUp` (mounted
+once in `App` inside `AuthProvider`; reads rules once on load and posts anything due). Account-detail
+page gained a "Recurring" section above the transaction list. Recurring posts carry
+`source: 'recurring'` (badged in the list) and roll into balances like any transaction. No rules
+change. **Note:** `groupId` is *not yet* denormalised onto transactions/rules — that's added in
+Stage 6 when rules become group-scope-aware.
 
 **Stage 6 — Members, roles & invites ⬜** — multi-parent sharing with role-based permissions.
 - **Roles:** **Owner** (creator; full control incl. delete space + manage all members; exactly one),
