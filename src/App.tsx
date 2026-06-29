@@ -6,6 +6,7 @@ import { RecurringCatchUp } from './features/recurring/RecurringCatchUp'
 import { SignInPage } from './features/auth/SignInPage'
 import { Dashboard } from './routes/Dashboard'
 import { AccountDetail } from './routes/AccountDetail'
+import { Members } from './routes/Members'
 
 export default function App() {
   // Before .env.local is filled in, show setup guidance instead of white-screening.
@@ -30,6 +31,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AccountDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/members"
+            element={
+              <ProtectedRoute>
+                <Members />
               </ProtectedRoute>
             }
           />

@@ -4,7 +4,7 @@ import { logError } from '../../lib/log'
 import { minorToInput, parseMoneyToMinor } from '../../lib/money'
 import { CURRENCIES, DEFAULT_CURRENCY } from '../../lib/currencies'
 import type { Account, Group } from '../../types/models'
-import { addAccount, updateAccount } from './api'
+import { addAccount, propagateAccountGroup, updateAccount } from './api'
 
 export function AccountFormModal({
   householdId,
@@ -45,6 +45,11 @@ export function AccountFormModal({
           currency,
           openingBalanceMinor,
         })
+        // Moving the account to another group must follow through to its
+        // transactions/rules so scoped-write checks stay correct.
+        if (groupId !== account.groupId) {
+          await propagateAccountGroup(householdId, account.id, groupId)
+        }
       } else {
         await addAccount(householdId, { name, groupId, currency, openingBalanceMinor })
       }

@@ -18,6 +18,7 @@ function txn(accountId: string, amountMinor: number): Transaction {
   return {
     id: `${accountId}-${amountMinor}`,
     accountId,
+    groupId: 'g1',
     date: '2026-06-29',
     description: 'x',
     amountMinor,

@@ -12,6 +12,7 @@ export function TransactionFormModal({
   householdId,
   createdByUid,
   accountId,
+  groupId,
   currency,
   transaction,
   onClose,
@@ -19,6 +20,7 @@ export function TransactionFormModal({
   householdId: string
   createdByUid: string
   accountId: string
+  groupId: string
   currency: string
   transaction?: Transaction
   onClose: () => void
@@ -54,6 +56,7 @@ export function TransactionFormModal({
       } else {
         await addTransaction(householdId, createdByUid, {
           accountId,
+          groupId,
           date,
           description,
           amountMinor,

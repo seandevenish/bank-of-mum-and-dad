@@ -11,6 +11,7 @@ import { useRecurringRules } from '../features/recurring/useRecurringRules'
 import { deleteRecurringRule, updateRecurringRule } from '../features/recurring/api'
 import { RecurringRuleFormModal } from '../features/recurring/RecurringRuleFormModal'
 import { RecurringRulesList } from '../features/recurring/RecurringRulesList'
+import { canAccessGroup, canWriteData } from '../features/members/permissions'
 import { LoadingScreen } from '../components/LoadingScreen'
 import { logError } from '../lib/log'
 import { formatMoney } from '../lib/money'
@@ -23,8 +24,9 @@ type ModalState =
 
 export function AccountDetail() {
   const { accountId = '' } = useParams()
-  const { user, household } = useAuth()
+  const { user, household, member } = useAuth()
   const householdId = household!.id
+  const writable = canWriteData(member)
   const { groups, loading: groupsLoading, error: groupsError } = useGroups()
   const { accounts, loading: accountsLoading, error: accountsError } = useAccounts()
   const { transactions, loading: txnsLoading, error: txnsError } = useTransactions()
@@ -118,7 +120,16 @@ export function AccountDetail() {
           </div>
         )}
 
-        {!loading && !error && account && (
+        {!loading && !error && account && !canAccessGroup(member, account.groupId) && (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+            <p className="text-sm text-slate-500">You don’t have access to this account.</p>
+            <Link to="/" className="mt-2 inline-block text-sm font-medium text-blue-700 hover:underline">
+              Back to accounts
+            </Link>
+          </div>
+        )}
+
+        {!loading && !error && account && canAccessGroup(member, account.groupId) && (
           <>
             <div className="mb-5 flex items-end justify-between gap-4">
               <div className="min-w-0">
@@ -133,34 +144,40 @@ export function AccountDetail() {
                   Opening balance {formatMoney(account.openingBalanceMinor, account.currency)}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setModal({ type: 'txn' })}
-                className="shrink-0 rounded-lg bg-blue-900 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-800"
-              >
-                + Add transaction
-              </button>
+              {writable && (
+                <button
+                  type="button"
+                  onClick={() => setModal({ type: 'txn' })}
+                  className="shrink-0 rounded-lg bg-blue-900 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-800"
+                >
+                  + Add transaction
+                </button>
+              )}
             </div>
 
             <div className="mb-6">
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-slate-500">Recurring</h2>
-                <button
-                  type="button"
-                  onClick={() => setModal({ type: 'rule' })}
-                  className="rounded-lg px-2 py-1 text-sm font-medium text-blue-700 hover:bg-blue-50"
-                >
-                  + Add recurring
-                </button>
+                {writable && (
+                  <button
+                    type="button"
+                    onClick={() => setModal({ type: 'rule' })}
+                    className="rounded-lg px-2 py-1 text-sm font-medium text-blue-700 hover:bg-blue-50"
+                  >
+                    + Add recurring
+                  </button>
+                )}
               </div>
               {accountRules.length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-4 text-sm text-slate-400">
-                  No recurring transactions. Add one to auto-post pocket money on a schedule.
+                  No recurring transactions.
+                  {writable && ' Add one to auto-post pocket money on a schedule.'}
                 </p>
               ) : (
                 <RecurringRulesList
                   rules={accountRules}
                   currency={account.currency}
+                  canWrite={writable}
                   onEdit={(rule) => setModal({ type: 'rule', rule })}
                   onToggleActive={(rule) => void handleToggleRule(rule)}
                   onDelete={(rule) => void handleDeleteRule(rule)}
@@ -173,6 +190,7 @@ export function AccountDetail() {
               transactions={accountTxns}
               openingBalanceMinor={account.openingBalanceMinor}
               currency={account.currency}
+              canWrite={writable}
               onEdit={(transaction) => setModal({ type: 'txn', transaction })}
               onDelete={(transaction) => void handleDelete(transaction)}
             />
@@ -185,6 +203,7 @@ export function AccountDetail() {
           householdId={householdId}
           createdByUid={user!.uid}
           accountId={account.id}
+          groupId={account.groupId}
           currency={account.currency}
           transaction={modal.transaction}
           onClose={() => setModal({ type: 'none' })}
@@ -195,6 +214,7 @@ export function AccountDetail() {
           householdId={householdId}
           createdByUid={user!.uid}
           accountId={account.id}
+          groupId={account.groupId}
           currency={account.currency}
           rule={modal.rule}
           onClose={() => setModal({ type: 'none' })}

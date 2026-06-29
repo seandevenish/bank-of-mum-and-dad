@@ -18,6 +18,7 @@ export function RecurringRuleFormModal({
   householdId,
   createdByUid,
   accountId,
+  groupId,
   currency,
   rule,
   onClose,
@@ -25,6 +26,7 @@ export function RecurringRuleFormModal({
   householdId: string
   createdByUid: string
   accountId: string
+  groupId: string
   currency: string
   rule?: RecurringRule
   onClose: () => void
@@ -59,6 +61,7 @@ export function RecurringRuleFormModal({
       } else {
         const created = await addRecurringRule(householdId, {
           accountId,
+          groupId,
           description,
           amountMinor,
           interval,

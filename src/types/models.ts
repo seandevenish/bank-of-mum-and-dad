@@ -15,12 +15,59 @@ export type RecurringInterval = 'weekly' | 'fortnightly' | 'monthly'
 
 export type TransactionSource = 'manual' | 'recurring'
 
+/**
+ * Member roles, most to least privileged:
+ * - `owner`    — the creator; full control incl. deleting the space + managing
+ *                all members. Exactly one per household.
+ * - `admin`    — manage members + full data access.
+ * - `full`     — create/edit/delete all data, but can't manage members.
+ * - `readonly` — view only.
+ */
+export type MemberRole = 'owner' | 'admin' | 'full' | 'readonly'
+
+export type InviteStatus = 'pending'
+
 /** A household groups one or more parents who share the same data. */
 export interface Household {
   id: string
   name: string
+  /** The owning user's uid. Optional only for legacy pre-Stage-6 households,
+   * which are backfilled on next load. */
+  ownerUid?: string
+  /** Denormalised list of all member uids for fast rule checks. */
   memberUids: string[]
   createdAt: number
+}
+
+/**
+ * A member of a household, stored at `households/{hid}/members/{uid}`. Holds the
+ * role + scope detail; `memberUids[]` on the household is the fast-lookup mirror.
+ */
+export interface Member {
+  uid: string
+  role: MemberRole
+  /** Groups this member is limited to. `null` = all groups (unscoped). */
+  scopedGroupIds: string[] | null
+  email: string
+  displayName?: string
+  invitedByUid?: string
+  joinedAt: number
+}
+
+/**
+ * A pending invite, stored at `households/{hid}/invites/{emailKey}` where
+ * `emailKey` is the lowercased email. Discovered on sign-in via a
+ * `collectionGroup('invites')` query matching the signed-in user's email.
+ */
+export interface Invite {
+  email: string
+  role: MemberRole
+  scopedGroupIds: string[] | null
+  householdId: string
+  householdName: string
+  invitedByUid: string
+  createdAt: number
+  status: InviteStatus
 }
 
 /** Maps a signed-in user to their household. Stored at top-level `users/{uid}`. */
@@ -55,6 +102,9 @@ export interface Account {
 export interface Transaction {
   id: string
   accountId: string
+  /** Denormalised from the account so group-scoped rules can authorise writes
+   * without an extra account lookup. */
+  groupId: string
   date: Iso8601Date
   description: string
   amountMinor: number // signed: + credit / - debit
@@ -68,6 +118,8 @@ export interface Transaction {
 export interface RecurringRule {
   id: string
   accountId: string
+  /** Denormalised from the account (see {@link Transaction.groupId}). */
+  groupId: string
   description: string
   amountMinor: number // signed
   interval: RecurringInterval

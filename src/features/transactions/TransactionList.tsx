@@ -12,12 +12,14 @@ export function TransactionList({
   transactions,
   openingBalanceMinor,
   currency,
+  canWrite = true,
   onEdit,
   onDelete,
 }: {
   transactions: Transaction[]
   openingBalanceMinor: number
   currency: string
+  canWrite?: boolean
   onEdit: (txn: Transaction) => void
   onDelete: (txn: Transaction) => void
 }) {
@@ -70,22 +72,24 @@ export function TransactionList({
                   {formatMoney(balanceAfter.get(txn.id) ?? 0, currency)}
                 </p>
               </div>
-              <div className="flex items-center gap-1 text-sm">
-                <button
-                  type="button"
-                  onClick={() => onEdit(txn)}
-                  className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-50"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete(txn)}
-                  className="rounded-lg px-2 py-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                >
-                  Delete
-                </button>
-              </div>
+              {canWrite && (
+                <div className="flex items-center gap-1 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(txn)}
+                    className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-50"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(txn)}
+                    className="rounded-lg px-2 py-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
             </div>
           </li>
         )

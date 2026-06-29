@@ -11,12 +11,14 @@ const INTERVAL_LABEL: Record<RecurringInterval, string> = {
 export function RecurringRulesList({
   rules,
   currency,
+  canWrite = true,
   onEdit,
   onToggleActive,
   onDelete,
 }: {
   rules: RecurringRule[]
   currency: string
+  canWrite?: boolean
   onEdit: (rule: RecurringRule) => void
   onToggleActive: (rule: RecurringRule) => void
   onDelete: (rule: RecurringRule) => void
@@ -50,29 +52,31 @@ export function RecurringRulesList({
                 {credit ? '+' : '−'}
                 {formatMoney(Math.abs(rule.amountMinor), currency).replace('-', '')}
               </span>
-              <div className="flex items-center gap-1 text-sm">
-                <button
-                  type="button"
-                  onClick={() => onToggleActive(rule)}
-                  className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-50"
-                >
-                  {rule.active ? 'Pause' : 'Resume'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onEdit(rule)}
-                  className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-50"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete(rule)}
-                  className="rounded-lg px-2 py-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                >
-                  Delete
-                </button>
-              </div>
+              {canWrite && (
+                <div className="flex items-center gap-1 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => onToggleActive(rule)}
+                    className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-50"
+                  >
+                    {rule.active ? 'Pause' : 'Resume'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(rule)}
+                    className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-50"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(rule)}
+                    className="rounded-lg px-2 py-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
             </div>
           </li>
         )

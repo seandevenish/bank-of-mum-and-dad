@@ -7,32 +7,127 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Lowercased email of the signed-in user — also the key for their invites.
+    function emailKey() {
+      return request.auth.token.email.lower();
+    }
+
     // A user can only read/write their own profile doc (maps them to a household).
     match /users/{uid} {
       allow read, write: if isSignedIn() && request.auth.uid == uid;
     }
 
     match /households/{householdId} {
-      // Membership is recorded on the household doc itself.
-      function isMember() {
-        return isSignedIn() && request.auth.uid in resource.data.memberUids;
+      // ---- helpers ------------------------------------------------------------
+      function household() {
+        return get(/databases/$(database)/documents/households/$(householdId)).data;
       }
-      // On create, the caller must list themselves as a member.
+      function memberPath() {
+        return /databases/$(database)/documents/households/$(householdId)/members/$(request.auth.uid);
+      }
+      function memberExists() {
+        return isSignedIn() && exists(memberPath());
+      }
+      function role() {
+        return memberExists() ? get(memberPath()).data.role : '';
+      }
+      function scopedGroupIds() {
+        return get(memberPath()).data.scopedGroupIds;
+      }
+      // Membership is mirrored on the household doc for cheap checks.
+      function isMember() {
+        return isSignedIn() && request.auth.uid in household().memberUids;
+      }
       function willBeMember() {
         return isSignedIn() && request.auth.uid in request.resource.data.memberUids;
       }
+      function isOwner() {
+        return role() == 'owner';
+      }
+      function isOwnerOrAdmin() {
+        return role() == 'owner' || role() == 'admin';
+      }
+      // owner / admin / full may write data; readonly may not.
+      function canWriteData() {
+        return role() == 'owner' || role() == 'admin' || role() == 'full';
+      }
+      // A pending invite addressed to this user exists in this household.
+      function hasPendingInvite() {
+        return isSignedIn() &&
+          exists(/databases/$(database)/documents/households/$(householdId)/invites/$(emailKey()));
+      }
+      // Scoped members are limited to their groups; null scope = all groups.
+      function inScope(groupId) {
+        return scopedGroupIds() == null || groupId in scopedGroupIds();
+      }
+      // Group create/delete is reserved for unscoped writers.
+      function canManageGroups() {
+        return canWriteData() && scopedGroupIds() == null;
+      }
 
+      // ---- household doc ------------------------------------------------------
       allow read: if isMember();
-      allow create: if willBeMember();
-      // Allow updates by current members who remain members (e.g. inviting another parent).
-      allow update: if isMember() && willBeMember();
+      // New household: creator lists themselves as the sole member and owner.
+      allow create: if willBeMember() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if
+        // owner/admin editing the household (incl. inviting => arrayUnion memberUids)
+        (isOwnerOrAdmin() && willBeMember())
+        // a new member self-joining when they hold a pending invite
+        || (hasPendingInvite() && willBeMember())
+        // legacy pre-Stage-6 backfill: an existing member claims ownership once
+        || (isMember() && !('ownerUid' in household()) &&
+            request.resource.data.ownerUid == request.auth.uid);
+      allow delete: if isOwner();
 
-      // All household data (groups, accounts, transactions, recurringRules, …) is
-      // readable/writable only by members of the parent household.
-      match /{document=**} {
-        allow read, write: if isSignedIn() &&
-          request.auth.uid in
-            get(/databases/$(database)/documents/households/$(householdId)).data.memberUids;
+      // ---- members ------------------------------------------------------------
+      match /members/{memberUid} {
+        allow read: if isMember();
+        allow create: if
+          isOwnerOrAdmin()
+          // self-create on invite accept
+          || (request.auth.uid == memberUid && hasPendingInvite())
+          // legacy backfill: an existing household member creates their own doc
+          || (request.auth.uid == memberUid && isMember());
+        allow update: if isOwnerOrAdmin();
+        // owner/admin can remove anyone; a member can remove themselves (not the owner).
+        allow delete: if isOwnerOrAdmin()
+          || (request.auth.uid == memberUid && role() != 'owner');
+      }
+
+      // ---- invites ------------------------------------------------------------
+      match /invites/{inviteKey} {
+        // The addressed user can read their own invite (incl. via collectionGroup).
+        allow read: if isSignedIn() && resource.data.email == emailKey();
+        // Household members can list invites for the management UI.
+        allow read: if isMember();
+        allow create, update: if isOwnerOrAdmin();
+        // owner/admin can revoke; the addressed user deletes theirs on accept.
+        allow delete: if isOwnerOrAdmin() || (isSignedIn() && resource.data.email == emailKey());
+      }
+
+      // ---- data: groups -------------------------------------------------------
+      match /groups/{groupId} {
+        allow read: if isMember();
+        allow create, update, delete: if canManageGroups();
+      }
+
+      // ---- data: accounts / transactions / recurringRules ---------------------
+      // Reads are member-level; per-group read filtering is applied in the app.
+      // Writes are role-gated and scope-checked against the (denormalised) groupId.
+      match /accounts/{accountId} {
+        allow read: if isMember();
+        allow create, update: if canWriteData() && inScope(request.resource.data.groupId);
+        allow delete: if canWriteData() && inScope(resource.data.groupId);
+      }
+      match /transactions/{txnId} {
+        allow read: if isMember();
+        allow create, update: if canWriteData() && inScope(request.resource.data.groupId);
+        allow delete: if canWriteData() && inScope(resource.data.groupId);
+      }
+      match /recurringRules/{ruleId} {
+        allow read: if isMember();
+        allow create, update: if canWriteData() && inScope(request.resource.data.groupId);
+        allow delete: if canWriteData() && inScope(resource.data.groupId);
       }
     }
   }

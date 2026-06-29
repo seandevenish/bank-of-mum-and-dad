@@ -4,6 +4,8 @@ import type { Iso8601Date, Transaction } from '../../types/models'
 
 export interface TransactionInput {
   accountId: string
+  /** Denormalised from the account, for group-scoped write authorisation. */
+  groupId: string
   date: Iso8601Date
   description: string
   amountMinor: number // signed: + credit / - debit
@@ -16,6 +18,7 @@ export async function addTransaction(
 ): Promise<void> {
   await addDoc(householdCollection(householdId, 'transactions'), {
     accountId: input.accountId,
+    groupId: input.groupId,
     date: input.date,
     description: input.description.trim(),
     amountMinor: input.amountMinor,

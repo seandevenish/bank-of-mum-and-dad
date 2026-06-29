@@ -9,6 +9,13 @@ import { deleteGroup } from '../features/groups/api'
 import { deleteAccount } from '../features/accounts/api'
 import { GroupFormModal } from '../features/groups/GroupFormModal'
 import { AccountFormModal } from '../features/accounts/AccountFormModal'
+import {
+  ROLE_LABEL,
+  canAccessGroup,
+  canManageGroups,
+  canManageMembers,
+  canWriteData,
+} from '../features/members/permissions'
 import { LoadingScreen } from '../components/LoadingScreen'
 import { logError } from '../lib/log'
 import { formatMoney } from '../lib/money'
@@ -35,12 +42,21 @@ function formatGroupTotals(accounts: Account[], balances: Map<string, number>): 
 }
 
 export function Dashboard() {
-  const { user, household, signOut } = useAuth()
+  const { user, household, member, signOut } = useAuth()
   const householdId = household!.id
   const { groups, loading: groupsLoading, error: groupsError } = useGroups()
   const { accounts, loading: accountsLoading, error: accountsError } = useAccounts()
   const { transactions, loading: txnsLoading, error: txnsError } = useTransactions()
   const [modal, setModal] = useState<ModalState>({ type: 'none' })
+
+  const writable = canWriteData(member)
+  const manageGroups = canManageGroups(member)
+
+  // Scoped members only see their groups.
+  const visibleGroups = useMemo(
+    () => groups.filter((g) => canAccessGroup(member, g.id)),
+    [groups, member],
+  )
 
   // Live balances: opening balance + Σ transactions, per account.
   const balances = useMemo(() => computeBalances(accounts, transactions), [accounts, transactions])
@@ -96,6 +112,12 @@ export function Dashboard() {
             <span className="hidden text-sm text-slate-500 sm:inline">
               {user?.email ?? user?.displayName}
             </span>
+            <Link
+              to="/members"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              {canManageMembers(member) ? 'Members' : 'My access'}
+            </Link>
             <button
               type="button"
               onClick={() => void signOut()}
@@ -110,14 +132,22 @@ export function Dashboard() {
       <main className="mx-auto max-w-3xl px-4 py-8">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Accounts</h2>
-          <button
-            type="button"
-            onClick={() => setModal({ type: 'group' })}
-            className="rounded-lg bg-blue-900 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-800"
-          >
-            + Add group
-          </button>
+          {manageGroups && (
+            <button
+              type="button"
+              onClick={() => setModal({ type: 'group' })}
+              className="rounded-lg bg-blue-900 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-800"
+            >
+              + Add group
+            </button>
+          )}
         </div>
+
+        {member && member.role === 'readonly' && (
+          <p className="mb-4 rounded-lg bg-slate-100 px-4 py-2 text-xs text-slate-500">
+            You have {ROLE_LABEL[member.role].toLowerCase()} access — viewing only.
+          </p>
+        )}
 
         {loading && <LoadingScreen />}
 
@@ -125,17 +155,19 @@ export function Dashboard() {
           <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
         )}
 
-        {!loading && !error && groups.length === 0 && (
+        {!loading && !error && visibleGroups.length === 0 && (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
             <p className="text-sm text-slate-500">
-              No groups yet. Add a group (e.g. a child) to start organising accounts.
+              {manageGroups
+                ? 'No groups yet. Add a group (e.g. a child) to start organising accounts.'
+                : 'No accounts have been shared with you yet.'}
             </p>
           </div>
         )}
 
         {!loading && !error && (
           <div className="space-y-5">
-            {groups.map((group) => {
+            {visibleGroups.map((group) => {
               const groupAccounts = accountsByGroup.get(group.id) ?? []
               return (
                 <section
@@ -150,27 +182,33 @@ export function Dashboard() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1 text-sm">
-                      <button
-                        type="button"
-                        onClick={() => setModal({ type: 'account', defaultGroupId: group.id })}
-                        className="rounded-lg px-2 py-1 font-medium text-blue-700 hover:bg-blue-50"
-                      >
-                        + Account
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setModal({ type: 'group', group })}
-                        className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-50"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteGroup(group)}
-                        className="rounded-lg px-2 py-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                      >
-                        Delete
-                      </button>
+                      {writable && (
+                        <button
+                          type="button"
+                          onClick={() => setModal({ type: 'account', defaultGroupId: group.id })}
+                          className="rounded-lg px-2 py-1 font-medium text-blue-700 hover:bg-blue-50"
+                        >
+                          + Account
+                        </button>
+                      )}
+                      {manageGroups && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setModal({ type: 'group', group })}
+                            className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-50"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteGroup(group)}
+                            className="rounded-lg px-2 py-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -197,22 +235,24 @@ export function Dashboard() {
                                 account.currency,
                               )}
                             </span>
-                            <div className="flex items-center gap-1 text-sm">
-                              <button
-                                type="button"
-                                onClick={() => setModal({ type: 'account', account })}
-                                className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-50"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void handleDeleteAccount(account)}
-                                className="rounded-lg px-2 py-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                              >
-                                Delete
-                              </button>
-                            </div>
+                            {writable && (
+                              <div className="flex items-center gap-1 text-sm">
+                                <button
+                                  type="button"
+                                  onClick={() => setModal({ type: 'account', account })}
+                                  className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-50"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDeleteAccount(account)}
+                                  className="rounded-lg px-2 py-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </li>
                       ))}
@@ -225,7 +265,7 @@ export function Dashboard() {
         )}
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          Tap an account to add transactions. Recurring pocket money arrives in the next stage.
+          Tap an account to view its transactions and recurring pocket money.
         </p>
       </main>
 
@@ -239,7 +279,7 @@ export function Dashboard() {
       {modal.type === 'account' && (
         <AccountFormModal
           householdId={householdId}
-          groups={groups}
+          groups={visibleGroups}
           account={modal.account}
           defaultGroupId={modal.defaultGroupId}
           onClose={() => setModal({ type: 'none' })}

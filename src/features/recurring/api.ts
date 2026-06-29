@@ -14,6 +14,8 @@ import type { Iso8601Date, RecurringInterval, RecurringRule } from '../../types/
 
 export interface RecurringRuleInput {
   accountId: string
+  /** Denormalised from the account, for group-scoped write authorisation. */
+  groupId: string
   description: string
   amountMinor: number // signed: + credit / - debit
   interval: RecurringInterval
@@ -32,6 +34,7 @@ export async function addRecurringRule(
   const ref = doc(householdCollection(householdId, 'recurringRules'))
   const data = {
     accountId: input.accountId,
+    groupId: input.groupId,
     description: input.description.trim(),
     amountMinor: input.amountMinor,
     interval: input.interval,
@@ -87,6 +90,8 @@ export async function runRecurringCatchUp(
       const txnRef = householdDoc(householdId, 'transactions', `${rule.id}_${date}`)
       batch.set(txnRef, {
         accountId: rule.accountId,
+        // Fallback keeps pre-Stage-6 rules (no denormalised groupId) writable.
+        groupId: rule.groupId ?? '',
         date,
         description: rule.description,
         amountMinor: rule.amountMinor,

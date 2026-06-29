@@ -14,12 +14,17 @@
 | 2 · Firebase + Auth | ✅ done & verified against live project |
 | 3 · Groups & Accounts (incl. per-account currency) | ✅ done & verified |
 | 4 · Transactions | ✅ done & verified |
-| 5 · Recurring transactions | ✅ done (build/lint/test green; awaiting interactive verify) |
-| 6 · Members, roles & invites (multi-parent) | ⬜ **next** |
-| 7 · PWA polish + deploy | ⬜ |
+| 5 · Recurring transactions | ✅ done & verified |
+| 6 · Members, roles & invites (multi-parent) | ✅ code done (build/lint/test green) — **needs `firebase deploy` of rules + indexes, then interactive verify** |
+| 7 · PWA polish + deploy | ⬜ **next** |
 | 8 · Native apps (Capacitor) | ⬜ optional |
 
-**Next action:** verify Stage 5 interactively, then begin **Stage 6 (Members, roles & invites)**.
+**Next action:** **deploy the new rules + indexes** (`firebase deploy --only firestore:rules,firestore:indexes`),
+verify Stage 6 interactively (invite a second email, check role gating), then begin **Stage 7 (PWA polish + deploy)**.
+
+> ⚠️ Stage 6 will **not work against the live project until the rules + the `invites` collection-group
+> index are deployed.** The existing single-user household is migrated automatically on next load
+> (an `ownerUid` + an owner `members/{uid}` doc are backfilled).
 
 ---
 
@@ -127,7 +132,31 @@ page gained a "Recurring" section above the transaction list. Recurring posts ca
 change. **Note:** `groupId` is *not yet* denormalised onto transactions/rules — that's added in
 Stage 6 when rules become group-scope-aware.
 
-**Stage 6 — Members, roles & invites ⬜** — multi-parent sharing with role-based permissions.
+**Stage 6 — Members, roles & invites ✅ (code; deploy + verify pending)** — multi-parent sharing.
+- **Roles** (`MemberRole`): owner / admin / full / readonly. Capability helpers + UI gating live in
+  [`src/features/members/permissions.ts`](../src/features/members/permissions.ts); the Dashboard and
+  account-detail pages hide write/manage controls accordingly, and lists take a `canWrite` prop.
+- **Model**: `Household.ownerUid`; `members/{uid}` (`Member`) and `invites/{emailKey}` (`Invite`)
+  subcollections; `groupId` now **denormalised** onto transactions + recurring rules (written on
+  create; `propagateAccountGroup` keeps it in sync when an account moves group; recurring catch-up
+  falls back to `''` for pre-S6 rules).
+- **Bootstrap/migration** ([`auth/household.ts`](../src/features/auth/household.ts)):
+  `resolveMembership` loads an existing member (backfilling owner + member doc for legacy households),
+  surfaces pending invites for brand-new users, or creates an owner household. `AuthProvider` carries
+  `member` + `pendingInvites` and exposes `acceptPendingInvite` / `dismissPendingInvites`.
+- **Invites (email, auto-join)**: owner/admin create `invites/{emailKey}` (key = lowercased email)
+  via the members page. On sign-in a `collectionGroup('invites')` query (filtered by email + status)
+  discovers them; `InviteAcceptScreen` prompts to join (one batched write: arrayUnion uid, create
+  member, set profile, delete invite) or decline → own space. Needs the `invites` collection-group
+  index (in [`firestore.indexes.json`](../firestore.indexes.json)).
+- **UI**: [`routes/Members.tsx`](../src/routes/Members.tsx) (member list + role badges, inline role
+  change, remove, pending-invite revoke, invite modal); a Members/My-access link in the header.
+- **Rules** ([`firestore.rules`](../firestore.rules)): role-aware (readonly can't write), member/invite
+  management gated to owner/admin, self-join allowed when a matching pending invite exists, legacy
+  ownership backfill, and **write** scope-checks against the denormalised `groupId`.
+- **Scoping cut (read side):** per-group **read** scoping is enforced **in the UI/hooks** (scoped
+  members only see their groups), not yet in rules — query-level read-scoping needs composite indexes.
+  Writes are hard-enforced. See deferred work.
 - **Roles:** **Owner** (creator; full control incl. delete space + manage all members; exactly one),
   **Admin** (manage members + full data access), **Full** (create/edit/delete all data, can't manage
   members), **Read-only** (view only). **Optional per-group scoping** (`scopedGroupIds`) limits a
@@ -175,3 +204,10 @@ build, configure store metadata.
 - **`signInWithRedirect`** fallback for mobile (currently popup-based Google sign-in).
 - **Cross-currency grand total** (would need exchange rates) — intentionally not done; totals stay
   per currency.
+- **Hard read-scoping in rules (Stage 6 follow-up):** scoped members are currently limited to their
+  groups in the UI only; data reads remain member-level. Enforcing read scope in `firestore.rules`
+  needs the data hooks to constrain queries by `where('groupId','in', scope)` (and a composite
+  `groupId + date` index for transactions) so collection queries aren't rejected.
+- **Member removal UX:** removing a member drops their `members/{uid}` + `memberUids` entry but leaves
+  their `users/{uid}` profile pointing at the household; on next load they hit a permission error
+  rather than being reset to a fresh own space. Acceptable for now.
