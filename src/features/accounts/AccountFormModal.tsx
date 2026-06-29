@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Modal, fieldClass, labelClass } from '../../components/Modal'
 import { logError } from '../../lib/log'
 import { minorToInput, parseMoneyToMinor } from '../../lib/money'
+import { CURRENCIES, DEFAULT_CURRENCY } from '../../lib/currencies'
 import type { Account, Group } from '../../types/models'
 import { addAccount, updateAccount } from './api'
 
@@ -20,6 +21,7 @@ export function AccountFormModal({
 }) {
   const [name, setName] = useState(account?.name ?? '')
   const [groupId, setGroupId] = useState(account?.groupId ?? defaultGroupId ?? groups[0]?.id ?? '')
+  const [currency, setCurrency] = useState(account?.currency ?? DEFAULT_CURRENCY)
   const [opening, setOpening] = useState(
     account ? minorToInput(account.openingBalanceMinor) : '0.00',
   )
@@ -40,10 +42,11 @@ export function AccountFormModal({
         await updateAccount(householdId, account.id, {
           name: name.trim(),
           groupId,
+          currency,
           openingBalanceMinor,
         })
       } else {
-        await addAccount(householdId, { name, groupId, openingBalanceMinor })
+        await addAccount(householdId, { name, groupId, currency, openingBalanceMinor })
       }
       onClose()
     } catch (err) {
@@ -92,8 +95,26 @@ export function AccountFormModal({
         </div>
 
         <div>
+          <label htmlFor="account-currency" className={labelClass}>
+            Currency
+          </label>
+          <select
+            id="account-currency"
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+            className={fieldClass}
+          >
+            {CURRENCIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
           <label htmlFor="account-opening" className={labelClass}>
-            Opening balance (£)
+            Opening balance ({currency})
           </label>
           <input
             id="account-opening"

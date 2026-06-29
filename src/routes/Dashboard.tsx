@@ -16,6 +16,19 @@ type ModalState =
   | { type: 'group'; group?: Group }
   | { type: 'account'; account?: Account; defaultGroupId?: string }
 
+/**
+ * A group's accounts may use different currencies, which can't be summed into a
+ * single number. Subtotal per currency and join, e.g. "£10.00 · $5.00".
+ */
+function formatGroupTotals(accounts: Account[]): string {
+  if (accounts.length === 0) return formatMoney(0)
+  const byCurrency = new Map<string, number>()
+  for (const a of accounts) {
+    byCurrency.set(a.currency, (byCurrency.get(a.currency) ?? 0) + a.openingBalanceMinor)
+  }
+  return [...byCurrency.entries()].map(([currency, minor]) => formatMoney(minor, currency)).join(' · ')
+}
+
 export function Dashboard() {
   const { user, household, signOut } = useAuth()
   const householdId = household!.id
@@ -115,7 +128,6 @@ export function Dashboard() {
           <div className="space-y-5">
             {groups.map((group) => {
               const groupAccounts = accountsByGroup.get(group.id) ?? []
-              const total = groupAccounts.reduce((sum, a) => sum + a.openingBalanceMinor, 0)
               return (
                 <section
                   key={group.id}
@@ -124,7 +136,7 @@ export function Dashboard() {
                   <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                     <div>
                       <h3 className="font-semibold">{group.name}</h3>
-                      <p className="text-xs text-slate-400">{formatMoney(total)} total</p>
+                      <p className="text-xs text-slate-400">{formatGroupTotals(groupAccounts)} total</p>
                     </div>
                     <div className="flex items-center gap-1 text-sm">
                       <button
