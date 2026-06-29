@@ -66,14 +66,13 @@ src/
   types/         Shared data-model types (models.ts)
 ```
 
-## Build stages
+## Build plan & progress
 
-1. **Scaffolding** — toolchain, Tailwind, folder structure, config files _(current)_
-2. **Firebase + Auth** — sign-in, protected routes, household bootstrap, security rules
-3. **Groups & Accounts** — CRUD + grouped account list
-4. **Transactions** — add/edit/delete, balances, summaries
-5. **Recurring transactions** — pocket-money rules + client-side catch-up
-6. **PWA polish + deploy** — icons, manifest, offline, Firebase Hosting
-7. **Native apps** _(optional)_ — Capacitor Android/iOS store builds
+The canonical, living plan — architecture decisions, Firebase setup state, stage-by-stage
+status, and conventions — is in **[`docs/PLAN.md`](docs/PLAN.md)**. Start there to see what's
+done and what's next.
+
+Stages: 1 Scaffolding → 2 Firebase + Auth → 3 Groups & Accounts → 4 Transactions →
+5 Recurring transactions → 6 PWA polish + deploy → 7 Native apps (optional).
 
 See the data model in [`src/types/models.ts`](src/types/models.ts).
