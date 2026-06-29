@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Modal, fieldClass, labelClass } from '../../components/Modal'
+import { Modal, ModalActions, fieldClass, labelClass } from '../../components/Modal'
 import { logError } from '../../lib/log'
 import type { Group } from '../../types/models'
 import { addGroup, updateGroup } from './api'
@@ -54,22 +54,7 @@ export function GroupFormModal({
 
         {error && <p className="text-sm text-red-700">{error}</p>}
 
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={busy}
-            className="rounded-lg bg-blue-900 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
-          >
-            Save
-          </button>
-        </div>
+        <ModalActions onCancel={onClose} busy={busy} />
       </form>
     </Modal>
   )
