@@ -13,13 +13,13 @@
 | 1 · Scaffolding | ✅ done |
 | 2 · Firebase + Auth | ✅ done & verified against live project |
 | 3 · Groups & Accounts (incl. per-account currency) | ✅ done & verified |
-| 4 · Transactions | ⬜ **next** |
-| 5 · Recurring transactions | ⬜ |
+| 4 · Transactions | ✅ done (build/lint/test green; awaiting interactive verify) |
+| 5 · Recurring transactions | ⬜ **next** |
 | 6 · Members, roles & invites (multi-parent) | ⬜ |
 | 7 · PWA polish + deploy | ⬜ |
 | 8 · Native apps (Capacitor) | ⬜ optional |
 
-**Next action:** begin **Stage 4 (Transactions)**.
+**Next action:** verify Stage 4 interactively, then begin **Stage 5 (Recurring transactions)**.
 
 ---
 
@@ -105,10 +105,14 @@ Plus error surfacing (`HouseholdErrorScreen`) and optional Seq logging (`src/lib
 (`src/lib/currencies.ts`) with **currency-aware group subtotals**. Balances show opening balance
 only until Stage 4.
 
-**Stage 4 — Transactions ⬜ (next)** — add/edit/delete transactions (date, description, amount) per
-account; transaction list; balance = openingBalance + Σ transactions, computed live per account and
-rolled into per-group/per-currency totals. New: `src/features/transactions/` (api, hook, form, list),
-an account detail route, `src/lib/dates.ts` if needed. No rules change (subcollection already covered).
+**Stage 4 — Transactions ✅** — add/edit/delete transactions (date, description, amount) per account
+via an account-detail route (`/accounts/:accountId`). `src/features/transactions/` holds `api.ts`,
+`useTransactions` (one household-wide subscription ordered by `date desc`, derived per-account
+client-side — no composite index), `balances.ts` (+ tests), `TransactionFormModal` (Money in/out
+toggle), `TransactionList` (running balance per row). `src/lib/dates.ts` added (`todayIso`,
+`formatIsoDate`, local-tz safe). Dashboard now shows live balances (opening + Σ txns) per account and
+in per-group/per-currency totals, with account rows linking to the detail page. No rules change
+(subcollection covered by the `{document=**}` wildcard).
 
 **Stage 5 — Recurring transactions ⬜** — recurring rule CRUD (pocket-money setup: amount + interval
 + anchor date); client-side catch-up engine in `src/lib/recurring.ts` run on app load, posting due

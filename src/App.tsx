@@ -4,6 +4,7 @@ import { AuthProvider } from './features/auth/AuthProvider'
 import { ProtectedRoute } from './features/auth/ProtectedRoute'
 import { SignInPage } from './features/auth/SignInPage'
 import { Dashboard } from './routes/Dashboard'
+import { AccountDetail } from './routes/AccountDetail'
 
 export default function App() {
   // Before .env.local is filled in, show setup guidance instead of white-screening.
@@ -19,6 +20,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/accounts/:accountId"
+            element={
+              <ProtectedRoute>
+                <AccountDetail />
               </ProtectedRoute>
             }
           />

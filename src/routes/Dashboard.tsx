@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../features/auth/context'
 import { useGroups } from '../features/groups/useGroups'
 import { useAccounts } from '../features/accounts/useAccounts'
+import { useTransactions } from '../features/transactions/useTransactions'
+import { computeBalances } from '../features/transactions/balances'
 import { deleteGroup } from '../features/groups/api'
 import { deleteAccount } from '../features/accounts/api'
 import { GroupFormModal } from '../features/groups/GroupFormModal'
@@ -18,13 +21,15 @@ type ModalState =
 
 /**
  * A group's accounts may use different currencies, which can't be summed into a
- * single number. Subtotal per currency and join, e.g. "£10.00 · $5.00".
+ * single number. Subtotal per currency (using each account's live balance) and
+ * join, e.g. "£10.00 · $5.00".
  */
-function formatGroupTotals(accounts: Account[]): string {
+function formatGroupTotals(accounts: Account[], balances: Map<string, number>): string {
   if (accounts.length === 0) return formatMoney(0)
   const byCurrency = new Map<string, number>()
   for (const a of accounts) {
-    byCurrency.set(a.currency, (byCurrency.get(a.currency) ?? 0) + a.openingBalanceMinor)
+    const balance = balances.get(a.id) ?? a.openingBalanceMinor
+    byCurrency.set(a.currency, (byCurrency.get(a.currency) ?? 0) + balance)
   }
   return [...byCurrency.entries()].map(([currency, minor]) => formatMoney(minor, currency)).join(' · ')
 }
@@ -34,7 +39,11 @@ export function Dashboard() {
   const householdId = household!.id
   const { groups, loading: groupsLoading, error: groupsError } = useGroups()
   const { accounts, loading: accountsLoading, error: accountsError } = useAccounts()
+  const { transactions, loading: txnsLoading, error: txnsError } = useTransactions()
   const [modal, setModal] = useState<ModalState>({ type: 'none' })
+
+  // Live balances: opening balance + Σ transactions, per account.
+  const balances = useMemo(() => computeBalances(accounts, transactions), [accounts, transactions])
 
   // Accounts indexed by their group for the grouped view.
   const accountsByGroup = useMemo(() => {
@@ -72,8 +81,8 @@ export function Dashboard() {
     }
   }
 
-  const loading = groupsLoading || accountsLoading
-  const error = groupsError ?? accountsError
+  const loading = groupsLoading || accountsLoading || txnsLoading
+  const error = groupsError ?? accountsError ?? txnsError
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -136,7 +145,9 @@ export function Dashboard() {
                   <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                     <div>
                       <h3 className="font-semibold">{group.name}</h3>
-                      <p className="text-xs text-slate-400">{formatGroupTotals(groupAccounts)} total</p>
+                      <p className="text-xs text-slate-400">
+                        {formatGroupTotals(groupAccounts, balances)} total
+                      </p>
                     </div>
                     <div className="flex items-center gap-1 text-sm">
                       <button
@@ -172,13 +183,19 @@ export function Dashboard() {
                           key={account.id}
                           className="flex items-center justify-between px-4 py-3"
                         >
-                          <div>
-                            <p className="font-medium">{account.name}</p>
-                            <p className="text-xs text-slate-400">Balance</p>
-                          </div>
+                          <Link
+                            to={`/accounts/${account.id}`}
+                            className="group min-w-0 flex-1 hover:opacity-80"
+                          >
+                            <p className="font-medium group-hover:underline">{account.name}</p>
+                            <p className="text-xs text-slate-400">View transactions</p>
+                          </Link>
                           <div className="flex items-center gap-3">
                             <span className="font-semibold tabular-nums">
-                              {formatMoney(account.openingBalanceMinor, account.currency)}
+                              {formatMoney(
+                                balances.get(account.id) ?? account.openingBalanceMinor,
+                                account.currency,
+                              )}
                             </span>
                             <div className="flex items-center gap-1 text-sm">
                               <button
@@ -208,8 +225,7 @@ export function Dashboard() {
         )}
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          Transactions and recurring pocket money arrive in the next stages — balances currently show
-          each account&apos;s opening balance.
+          Tap an account to add transactions. Recurring pocket money arrives in the next stage.
         </p>
       </main>
 
