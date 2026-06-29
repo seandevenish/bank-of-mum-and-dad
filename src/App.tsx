@@ -1,23 +1,46 @@
-/**
- * Placeholder shell for Stage 1 (scaffolding).
- *
- * Real routing, auth, and feature screens are added from Stage 2 onwards — see
- * the build plan. This component only exists to confirm the toolchain (Vite +
- * React + TypeScript + Tailwind + PWA) is wired up and rendering.
- */
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { isFirebaseConfigured } from './firebase/config'
+import { AuthProvider } from './features/auth/AuthProvider'
+import { ProtectedRoute } from './features/auth/ProtectedRoute'
+import { SignInPage } from './features/auth/SignInPage'
+import { Dashboard } from './routes/Dashboard'
+
 export default function App() {
+  // Before .env.local is filled in, show setup guidance instead of white-screening.
+  if (!isFirebaseConfigured) return <ConfigNeeded />
+
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 p-8 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-900 text-2xl">
-          🏦
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight">Bank of Mum &amp; Dad</h1>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/sign-in" element={<SignInPage />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  )
+}
+
+function ConfigNeeded() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <h1 className="text-lg font-semibold text-slate-900">Firebase config needed</h1>
         <p className="mt-2 text-sm text-slate-500">
-          Track pocket money and transactions for your children, across grouped accounts.
+          Copy <code className="rounded bg-slate-100 px-1">.env.example</code> to{' '}
+          <code className="rounded bg-slate-100 px-1">.env.local</code> and paste your Firebase web
+          config values, then restart the dev server.
         </p>
-        <p className="mt-6 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
-          Stage 1 · scaffolding complete
+        <p className="mt-3 text-xs text-slate-400">
+          Firebase console → Project settings → General → Your apps → SDK setup &amp; configuration.
         </p>
       </div>
     </main>
