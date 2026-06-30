@@ -16,11 +16,13 @@
 | 4 · Transactions | ✅ done & verified |
 | 5 · Recurring transactions | ✅ done & verified |
 | 6 · Members, roles & invites (multi-parent) | ✅ code done (build/lint/test green) — **needs `firebase deploy` of rules + indexes, then interactive verify** |
-| 7 · PWA polish + deploy | ⬜ **next** |
+| 7 · PWA polish + deploy | ✅ code done (icons, manifest, install/offline/update UX, bundle code-split — build/lint/test green) — **needs `firebase deploy --only hosting` + Auth authorized-domain, then install verify** |
 | 8 · Native apps (Capacitor) | ⬜ optional |
 
-**Next action:** **deploy the new rules + indexes** (`firebase deploy --only firestore:rules,firestore:indexes`),
-verify Stage 6 interactively (invite a second email, check role gating), then begin **Stage 7 (PWA polish + deploy)**.
+**Next action:** **deploy** — from a logged-in Firebase CLI (`firebase login`) run
+`firebase deploy --only firestore:rules,firestore:indexes,hosting` (this also clears the Stage 6 rules/index backlog).
+Then in the console add the Hosting domain (`bank-of-mum-and-dad-e8b28.web.app`) under
+**Auth → Settings → Authorized domains**, and verify install + offline + update prompts on a device.
 
 > ⚠️ Stage 6 will **not work against the live project until the rules + the `invites` collection-group
 > index are deployed.** The existing single-user household is migrated automatically on next load
@@ -178,9 +180,28 @@ Stage 6 when rules become group-scope-aware.
 - **Suggested build order within the stage:** model + owner self-membership → invite create/accept →
   role enforcement in rules + UI gating → per-group scoping last.
 
-**Stage 7 — PWA polish + deploy ⬜** — app icons + manifest, install prompt, offline check,
-**code-split the Firebase bundle** (currently ~729 kB → chunk-size warning), add the Hosting domain to
-Auth → authorized domains, `firebase deploy`.
+**Stage 7 — PWA polish + deploy ✅ (code; deploy + verify pending)** — installable-PWA polish.
+- **App icons** ([`public/icons/`](../public/icons)): `pwa-192x192.png`, `pwa-512x512.png`,
+  `maskable-512x512.png` (full-bleed, glyph inside the safe zone), and `apple-touch-icon.png` (180×180),
+  rasterised from the £ brand mark. Wired into the [`vite.config.ts`](../vite.config.ts) manifest
+  (`icons[]` incl. a `purpose: 'maskable'` entry) and `index.html` (`apple-touch-icon` +
+  `mobile-web-app-capable` / Apple meta).
+- **Install / offline / update UX** ([`src/features/pwa/PwaStatus.tsx`](../src/features/pwa/PwaStatus.tsx),
+  mounted once in `App`): captures `beforeinstallprompt` for an in-app **Install** button (dismissible),
+  shows an **offline** pill via `online`/`offline` events, and surfaces a **"new version — Reload"** prompt
+  using `useRegisterSW` from `virtual:pwa-register/react`. The PWA `registerType` changed
+  `autoUpdate` → `prompt` so users opt into the reload.
+- **Bundle code-split** — the single ~771 kB chunk (chunk-size warning) is gone: routes are
+  `React.lazy` + `Suspense` (one chunk per page), and `build.rollupOptions.output.manualChunks` splits
+  vendors into `firebase-firestore` (385 kB), `firebase-auth` (164 kB) and `react-vendor` (162 kB).
+  Initial entry is now ~24 kB. No chunk exceeds the 500 kB warn threshold.
+- **Boot-checked** against the production preview build: redirects to `/sign-in`, lazy route loads,
+  0 console errors.
+- **Deploy + verify pending (needs Sean / Firebase CLI):** `firebase deploy --only hosting` (plus the
+  outstanding Stage 6 `firestore:rules,firestore:indexes`); add the `*.web.app` Hosting domain to
+  **Auth → Authorized domains**; then install on a device and confirm the install/offline/update prompts.
+- **Note:** icons were generated with a one-off `sharp` script; `sharp` is not a project dependency
+  (installed `--no-save`, left in git-ignored `node_modules`). To regenerate, re-add it temporarily.
 
 **Stage 8 — Native apps ⬜ (optional)** — add Capacitor, generate Android/iOS projects from the web
 build, configure store metadata.
