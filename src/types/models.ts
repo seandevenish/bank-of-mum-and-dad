@@ -110,6 +110,11 @@ export interface Transaction {
   amountMinor: number // signed: + credit / - debit
   source: TransactionSource
   recurringRuleId?: string
+  /** Links the two legs of a transfer (a debit on one account, a credit on the
+   * other). Both legs share this id. */
+  transferId?: string
+  /** The other account in a transfer, for display ("Transfer to/from …"). */
+  counterpartAccountId?: string
   createdAt: number
   createdByUid: string
 }
@@ -121,11 +126,16 @@ export interface RecurringRule {
   /** Denormalised from the account (see {@link Transaction.groupId}). */
   groupId: string
   description: string
-  amountMinor: number // signed
+  /** Signed from the `accountId`'s perspective. For a transfer rule this is the
+   * (negative) debit on the source; the destination receives the opposite. */
+  amountMinor: number
   interval: RecurringInterval
   anchorDate: Iso8601Date
   nextRunDate: Iso8601Date
   lastRunDate?: Iso8601Date
   active: boolean
+  /** When set, this rule is a recurring transfer into the counterpart account. */
+  counterpartAccountId?: string
+  counterpartGroupId?: string
   createdAt: number
 }

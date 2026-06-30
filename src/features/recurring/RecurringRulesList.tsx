@@ -12,6 +12,7 @@ export function RecurringRulesList({
   rules,
   currency,
   canWrite = true,
+  accountNameById,
   onEdit,
   onToggleActive,
   onDelete,
@@ -19,6 +20,8 @@ export function RecurringRulesList({
   rules: RecurringRule[]
   currency: string
   canWrite?: boolean
+  /** Resolves a counterpart account id to its name, for transfer rules. */
+  accountNameById?: Map<string, string>
   onEdit: (rule: RecurringRule) => void
   onToggleActive: (rule: RecurringRule) => void
   onDelete: (rule: RecurringRule) => void
@@ -29,6 +32,9 @@ export function RecurringRulesList({
     <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
       {rules.map((rule) => {
         const credit = rule.amountMinor >= 0
+        const target = rule.counterpartAccountId
+          ? (accountNameById?.get(rule.counterpartAccountId) ?? 'another account')
+          : null
         return (
           <li key={rule.id} className="flex items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">
@@ -42,6 +48,7 @@ export function RecurringRulesList({
               </p>
               <p className="text-xs text-slate-400">
                 {INTERVAL_LABEL[rule.interval]}
+                {target && ` · Transfer to ${target}`}
                 {rule.active && ` · next ${formatIsoDate(rule.nextRunDate)}`}
               </p>
             </div>

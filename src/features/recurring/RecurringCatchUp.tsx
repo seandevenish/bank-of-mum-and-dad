@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useAuth } from '../auth/context'
+import { canAccessGroup, canWriteData } from '../members/permissions'
 import { logError, logInfo } from '../../lib/log'
 import { fetchRecurringRules, runRecurringCatchUp } from './api'
 
@@ -12,13 +13,14 @@ import { fetchRecurringRules, runRecurringCatchUp } from './api'
  * races another device.
  */
 export function RecurringCatchUp() {
-  const { user, household } = useAuth()
+  const { user, household, member } = useAuth()
   const ranForRef = useRef<string | null>(null)
 
   useEffect(() => {
     const householdId = household?.id
     const uid = user?.uid
-    if (!householdId || !uid) return
+    // Only writers run catch-up — read-only members' writes would be denied.
+    if (!householdId || !uid || !canWriteData(member)) return
     if (ranForRef.current === householdId) return
     ranForRef.current = householdId
 
@@ -27,7 +29,13 @@ export function RecurringCatchUp() {
       try {
         const rules = await fetchRecurringRules(householdId)
         if (cancelled) return
-        const posted = await runRecurringCatchUp(householdId, uid, rules)
+        // A scoped member can only post rules whose group(s) they can access.
+        const postable = rules.filter(
+          (r) =>
+            canAccessGroup(member, r.groupId) &&
+            (!r.counterpartGroupId || canAccessGroup(member, r.counterpartGroupId)),
+        )
+        const posted = await runRecurringCatchUp(householdId, uid, postable)
         if (posted > 0) {
           logInfo('Recurring catch-up posted {Count} transaction(s)', { Count: posted })
         }
@@ -40,7 +48,7 @@ export function RecurringCatchUp() {
     return () => {
       cancelled = true
     }
-  }, [household?.id, user?.uid])
+  }, [household?.id, user?.uid, member])
 
   return null
 }

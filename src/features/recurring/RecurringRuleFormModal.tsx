@@ -1,12 +1,12 @@
-import { useState, type FormEvent } from 'react'
-import { Modal, ModalActions, fieldClass, labelClass } from '../../components/Modal'
+import { useMemo, useState, type FormEvent } from 'react'
+import { Modal, ModalActions, ModeButton, fieldClass, labelClass } from '../../components/Modal'
 import { logError } from '../../lib/log'
 import { minorToInput, parseMoneyToMinor } from '../../lib/money'
 import { todayIso } from '../../lib/dates'
-import type { RecurringInterval, RecurringRule } from '../../types/models'
+import type { Account, RecurringInterval, RecurringRule } from '../../types/models'
 import { addRecurringRule, runRecurringCatchUp, updateRecurringRule } from './api'
 
-type Direction = 'in' | 'out'
+type Mode = 'in' | 'out' | 'transfer'
 
 const INTERVALS: { value: RecurringInterval; label: string }[] = [
   { value: 'weekly', label: 'Weekly' },
@@ -17,27 +17,34 @@ const INTERVALS: { value: RecurringInterval; label: string }[] = [
 export function RecurringRuleFormModal({
   householdId,
   createdByUid,
-  accountId,
-  groupId,
-  currency,
+  account,
+  accounts,
   rule,
   onClose,
 }: {
   householdId: string
   createdByUid: string
-  accountId: string
-  groupId: string
-  currency: string
+  account: Account
+  accounts: Account[]
   rule?: RecurringRule
   onClose: () => void
 }) {
-  const [description, setDescription] = useState(rule?.description ?? 'Pocket money')
-  const [direction, setDirection] = useState<Direction>(
-    rule && rule.amountMinor < 0 ? 'out' : 'in',
+  const editing = Boolean(rule)
+  const transferTargets = useMemo(
+    () => accounts.filter((a) => a.id !== account.id && a.currency === account.currency),
+    [accounts, account],
   )
+
+  const [mode, setMode] = useState<Mode>(
+    rule?.counterpartAccountId ? 'transfer' : rule && rule.amountMinor < 0 ? 'out' : 'in',
+  )
+  const [description, setDescription] = useState(rule?.description ?? 'Pocket money')
   const [amount, setAmount] = useState(rule ? minorToInput(Math.abs(rule.amountMinor)) : '')
   const [interval, setInterval] = useState<RecurringInterval>(rule?.interval ?? 'weekly')
   const [anchorDate, setAnchorDate] = useState(rule?.anchorDate ?? todayIso())
+  const [toAccountId, setToAccountId] = useState(
+    rule?.counterpartAccountId ?? transferTargets[0]?.id ?? '',
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -48,7 +55,7 @@ export function RecurringRuleFormModal({
       setError('Enter a description, a positive amount and a start date.')
       return
     }
-    const amountMinor = direction === 'out' ? -magnitude : magnitude
+    const amountMinor = mode === 'in' ? magnitude : -magnitude // out & transfer debit the source
     setBusy(true)
     setError(null)
     try {
@@ -59,57 +66,101 @@ export function RecurringRuleFormModal({
           interval,
         })
       } else {
+        const to = mode === 'transfer' ? transferTargets.find((a) => a.id === toAccountId) : undefined
+        if (mode === 'transfer' && !to) {
+          setError('Choose an account to transfer to.')
+          setBusy(false)
+          return
+        }
         const created = await addRecurringRule(householdId, {
-          accountId,
-          groupId,
+          accountId: account.id,
+          groupId: account.groupId,
           description,
           amountMinor,
           interval,
           anchorDate,
+          counterpartAccountId: to?.id,
+          counterpartGroupId: to?.groupId,
         })
-        // Post anything already due (e.g. a start date of today or earlier) now,
-        // rather than waiting for the next app load.
+        // Post anything already due (e.g. a past start date) now.
         await runRecurringCatchUp(householdId, createdByUid, [created])
       }
       onClose()
     } catch (err) {
-      logError('Failed to save recurring rule', err, { HouseholdId: householdId, AccountId: accountId })
+      logError('Failed to save recurring rule', err, {
+        HouseholdId: householdId,
+        AccountId: account.id,
+      })
       setError('Could not save. Please try again.')
       setBusy(false)
     }
   }
 
+  function pick(next: Mode) {
+    setMode(next)
+    if (next === 'transfer' && description.trim() === 'Pocket money') setDescription('Transfer')
+  }
+
+  const targetName = transferTargets.find((a) => a.id === toAccountId)?.name
+
   return (
-    <Modal title={rule ? 'Edit recurring' : 'New recurring transaction'} onClose={onClose}>
+    <Modal title={editing ? 'Edit recurring' : 'New recurring transaction'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setDirection('in')}
-            className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-              direction === 'in'
-                ? 'border-green-600 bg-green-50 text-green-700'
-                : 'border-slate-300 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            Money in
-          </button>
-          <button
-            type="button"
-            onClick={() => setDirection('out')}
-            className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-              direction === 'out'
-                ? 'border-red-600 bg-red-50 text-red-700'
-                : 'border-slate-300 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            Money out
-          </button>
-        </div>
+        {!editing && (
+          <div className="grid grid-cols-3 gap-2">
+            <ModeButton active={mode === 'in'} onClick={() => pick('in')} tone="green">
+              Money in
+            </ModeButton>
+            <ModeButton active={mode === 'out'} onClick={() => pick('out')} tone="red">
+              Money out
+            </ModeButton>
+            <ModeButton
+              active={mode === 'transfer'}
+              onClick={() => pick('transfer')}
+              tone="blue"
+              disabled={transferTargets.length === 0}
+            >
+              Transfer
+            </ModeButton>
+          </div>
+        )}
+
+        {mode === 'transfer' && (
+          <div>
+            <label htmlFor="rule-to" className={labelClass}>
+              Transfer to
+            </label>
+            {editing ? (
+              <input
+                id="rule-to"
+                type="text"
+                disabled
+                value={targetName ?? 'another account'}
+                className={`${fieldClass} disabled:bg-slate-100 disabled:text-slate-500`}
+              />
+            ) : (
+              <select
+                id="rule-to"
+                value={toAccountId}
+                onChange={(e) => setToAccountId(e.target.value)}
+                className={fieldClass}
+              >
+                {transferTargets.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <p className="mt-1 text-xs text-slate-400">
+              Each {interval} run debits {account.name} and credits the chosen account.
+            </p>
+          </div>
+        )}
 
         <div>
           <label htmlFor="rule-amount" className={labelClass}>
-            Amount ({currency})
+            Amount ({account.currency})
           </label>
           <input
             id="rule-amount"
@@ -159,18 +210,18 @@ export function RecurringRuleFormModal({
 
         <div>
           <label htmlFor="rule-anchor" className={labelClass}>
-            {rule ? 'Started' : 'Starts on'}
+            {editing ? 'Started' : 'Starts on'}
           </label>
           <input
             id="rule-anchor"
             type="date"
             required
-            disabled={Boolean(rule)}
+            disabled={editing}
             value={anchorDate}
             onChange={(e) => setAnchorDate(e.target.value)}
             className={`${fieldClass} disabled:bg-slate-100 disabled:text-slate-500`}
           />
-          {!rule && (
+          {!editing && (
             <p className="mt-1 text-xs text-slate-400">
               A start date in the past will back-fill the transactions due since then.
             </p>

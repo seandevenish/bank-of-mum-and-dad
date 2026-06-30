@@ -109,6 +109,39 @@ export function ModalActions({
   )
 }
 
+/** A segmented-toggle button (e.g. Money in / Money out / Transfer). */
+export function ModeButton({
+  active,
+  onClick,
+  tone,
+  disabled,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  tone: 'green' | 'red' | 'blue'
+  disabled?: boolean
+  children: ReactNode
+}) {
+  const activeTone = {
+    green: 'border-green-600 bg-green-50 text-green-700',
+    red: 'border-red-600 bg-red-50 text-red-700',
+    blue: 'border-blue-600 bg-blue-50 text-blue-700',
+  }[tone]
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`rounded-lg border px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
+        active ? activeTone : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
 /** Shared input styling used across the forms. */
 export const fieldClass =
   'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200'

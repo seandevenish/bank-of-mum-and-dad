@@ -185,6 +185,20 @@ Auth → authorized domains, `firebase deploy`.
 **Stage 8 — Native apps ⬜ (optional)** — add Capacitor, generate Android/iOS projects from the web
 build, configure store metadata.
 
+## Enhancements (post-plan)
+
+**Transfers between accounts** ✅ — both one-off and recurring. A transfer is two
+linked transactions (a debit on the source, a credit on the destination) sharing a `transferId`, so
+balances/per-currency logic are untouched. Limited to **same-currency** accounts (the app never sums
+across currencies). Entry points are a third **Transfer** mode in the transaction and recurring
+modals (`ModeButton` toggle); the destination picker lists same-currency accounts the member can
+access. Recurring transfers post both legs each period with deterministic ids
+(`${ruleId}_${date}` + `…_in`); `RecurringCatchUp` only runs for writers and skips rules whose
+group(s) the member can't access. Transfer legs show "Transfer to/from {account}", are edited by
+delete-and-recreate (no inline edit), and deleting either leg removes both. New API:
+`addTransfer` / `deleteTransactions` (transactions) and counterpart fields on recurring rules. No
+Firestore rules change (covered by existing role + `groupId`-scope checks).
+
 ## Conventions & workflow
 
 - **Commit per stage** (and per meaningful follow-up) on `main`; messages end with the Co-Authored-By

@@ -20,6 +20,9 @@ export interface RecurringRuleInput {
   amountMinor: number // signed: + credit / - debit
   interval: RecurringInterval
   anchorDate: Iso8601Date
+  /** When set, the rule is a transfer into this account each period. */
+  counterpartAccountId?: string
+  counterpartGroupId?: string
 }
 
 /**
@@ -41,10 +44,18 @@ export async function addRecurringRule(
     anchorDate: input.anchorDate,
     nextRunDate: input.anchorDate,
     active: true,
+    counterpartAccountId: input.counterpartAccountId ?? null,
+    counterpartGroupId: input.counterpartGroupId ?? null,
     createdAt: Date.now(),
   }
   await setDoc(ref, data)
-  return { id: ref.id, ...data }
+  // Firestore stores null; the in-memory model uses optional (undefined).
+  return {
+    id: ref.id,
+    ...data,
+    counterpartAccountId: data.counterpartAccountId ?? undefined,
+    counterpartGroupId: data.counterpartGroupId ?? undefined,
+  }
 }
 
 export async function updateRecurringRule(
@@ -87,8 +98,10 @@ export async function runRecurringCatchUp(
 
     const batch = writeBatch(db)
     for (const date of dueDates) {
-      const txnRef = householdDoc(householdId, 'transactions', `${rule.id}_${date}`)
-      batch.set(txnRef, {
+      // Source leg — deterministic id unchanged so pre-existing posts are stable.
+      const outRef = householdDoc(householdId, 'transactions', `${rule.id}_${date}`)
+      const transferId = rule.counterpartAccountId ? `${rule.id}_${date}` : undefined
+      batch.set(outRef, {
         accountId: rule.accountId,
         // Fallback keeps pre-Stage-6 rules (no denormalised groupId) writable.
         groupId: rule.groupId ?? '',
@@ -97,9 +110,29 @@ export async function runRecurringCatchUp(
         amountMinor: rule.amountMinor,
         source: 'recurring',
         recurringRuleId: rule.id,
+        ...(rule.counterpartAccountId
+          ? { transferId, counterpartAccountId: rule.counterpartAccountId }
+          : {}),
         createdAt: Date.now(),
         createdByUid,
       })
+      // Destination leg of a transfer rule — opposite amount on the counterpart.
+      if (rule.counterpartAccountId) {
+        const inRef = householdDoc(householdId, 'transactions', `${rule.id}_${date}_in`)
+        batch.set(inRef, {
+          accountId: rule.counterpartAccountId,
+          groupId: rule.counterpartGroupId ?? '',
+          date,
+          description: rule.description,
+          amountMinor: -rule.amountMinor,
+          source: 'recurring',
+          recurringRuleId: rule.id,
+          transferId,
+          counterpartAccountId: rule.accountId,
+          createdAt: Date.now(),
+          createdByUid,
+        })
+      }
     }
 
     const lastDue = dueDates[dueDates.length - 1]

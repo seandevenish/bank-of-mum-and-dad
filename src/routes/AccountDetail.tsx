@@ -4,7 +4,7 @@ import { useAuth } from '../features/auth/context'
 import { useGroups } from '../features/groups/useGroups'
 import { useAccounts } from '../features/accounts/useAccounts'
 import { useTransactions } from '../features/transactions/useTransactions'
-import { deleteTransaction } from '../features/transactions/api'
+import { deleteTransaction, deleteTransactions } from '../features/transactions/api'
 import { TransactionFormModal } from '../features/transactions/TransactionFormModal'
 import { TransactionList } from '../features/transactions/TransactionList'
 import { useRecurringRules } from '../features/recurring/useRecurringRules'
@@ -54,7 +54,29 @@ export function AccountDetail() {
     [account, accountTxns],
   )
 
+  // Accounts this member may transfer to/from; plus a name lookup for transfer rows.
+  const accessibleAccounts = useMemo(
+    () => accounts.filter((a) => canAccessGroup(member, a.groupId)),
+    [accounts, member],
+  )
+  const accountNameById = useMemo(
+    () => new Map(accounts.map((a) => [a.id, a.name])),
+    [accounts],
+  )
+
   async function handleDelete(txn: Transaction) {
+    // Deleting either leg of a transfer removes both.
+    if (txn.transferId) {
+      const legIds = transactions.filter((t) => t.transferId === txn.transferId).map((t) => t.id)
+      if (!window.confirm('Delete this transfer? Both sides will be removed.')) return
+      try {
+        await deleteTransactions(householdId, legIds)
+      } catch (err) {
+        logError('Failed to delete transfer', err, { HouseholdId: householdId, TxnId: txn.id })
+        window.alert('Could not delete the transfer. Please try again.')
+      }
+      return
+    }
     if (!window.confirm(`Delete “${txn.description}”?`)) return
     try {
       await deleteTransaction(householdId, txn.id)
@@ -178,6 +200,7 @@ export function AccountDetail() {
                   rules={accountRules}
                   currency={account.currency}
                   canWrite={writable}
+                  accountNameById={accountNameById}
                   onEdit={(rule) => setModal({ type: 'rule', rule })}
                   onToggleActive={(rule) => void handleToggleRule(rule)}
                   onDelete={(rule) => void handleDeleteRule(rule)}
@@ -191,6 +214,7 @@ export function AccountDetail() {
               openingBalanceMinor={account.openingBalanceMinor}
               currency={account.currency}
               canWrite={writable}
+              accountNameById={accountNameById}
               onEdit={(transaction) => setModal({ type: 'txn', transaction })}
               onDelete={(transaction) => void handleDelete(transaction)}
             />
@@ -202,9 +226,8 @@ export function AccountDetail() {
         <TransactionFormModal
           householdId={householdId}
           createdByUid={user!.uid}
-          accountId={account.id}
-          groupId={account.groupId}
-          currency={account.currency}
+          account={account}
+          accounts={accessibleAccounts}
           transaction={modal.transaction}
           onClose={() => setModal({ type: 'none' })}
         />
@@ -213,9 +236,8 @@ export function AccountDetail() {
         <RecurringRuleFormModal
           householdId={householdId}
           createdByUid={user!.uid}
-          accountId={account.id}
-          groupId={account.groupId}
-          currency={account.currency}
+          account={account}
+          accounts={accessibleAccounts}
           rule={modal.rule}
           onClose={() => setModal({ type: 'none' })}
         />

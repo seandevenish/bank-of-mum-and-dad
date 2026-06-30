@@ -13,6 +13,7 @@ export function TransactionList({
   openingBalanceMinor,
   currency,
   canWrite = true,
+  accountNameById,
   onEdit,
   onDelete,
 }: {
@@ -20,6 +21,8 @@ export function TransactionList({
   openingBalanceMinor: number
   currency: string
   canWrite?: boolean
+  /** Resolves a counterpart account id to its name, for transfer rows. */
+  accountNameById?: Map<string, string>
   onEdit: (txn: Transaction) => void
   onDelete: (txn: Transaction) => void
 }) {
@@ -49,12 +52,16 @@ export function TransactionList({
     <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
       {transactions.map((txn) => {
         const credit = txn.amountMinor >= 0
+        const counterpart = txn.transferId
+          ? (accountNameById?.get(txn.counterpartAccountId ?? '') ?? 'another account')
+          : null
         return (
           <li key={txn.id} className="flex items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">
               <p className="truncate font-medium">{txn.description}</p>
               <p className="text-xs text-slate-400">
                 {formatIsoDate(txn.date)}
+                {counterpart && ` · Transfer ${credit ? 'from' : 'to'} ${counterpart}`}
                 {txn.source === 'recurring' && ' · recurring'}
               </p>
             </div>
@@ -74,13 +81,16 @@ export function TransactionList({
               </div>
               {canWrite && (
                 <div className="flex items-center gap-1 text-sm">
-                  <button
-                    type="button"
-                    onClick={() => onEdit(txn)}
-                    className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-50"
-                  >
-                    Edit
-                  </button>
+                  {/* Transfers are edited by delete + re-create, so no inline edit. */}
+                  {!txn.transferId && (
+                    <button
+                      type="button"
+                      onClick={() => onEdit(txn)}
+                      className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-50"
+                    >
+                      Edit
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => onDelete(txn)}
