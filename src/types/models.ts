@@ -92,7 +92,7 @@ export interface Account {
   id: string
   name: string
   groupId: string
-  currency: string // ISO 4217, e.g. 'GBP'
+  currency: string // ISO 4217, e.g. 'USD'
   openingBalanceMinor: number
   archived: boolean
   createdAt: number

@@ -1,7 +1,7 @@
 import { deleteDoc, doc, updateDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { householdCollection, householdDoc } from '../../lib/firestore'
-import { detectDefaultCurrency } from '../../lib/currencies'
+import { DEFAULT_CURRENCY } from '../../lib/currencies'
 import type { Group } from '../../types/models'
 
 export interface GroupInput {
@@ -32,7 +32,7 @@ export async function addGroup(householdId: string, input: GroupInput): Promise<
   batch.set(accountRef, {
     name: DEFAULT_ACCOUNT_NAME,
     groupId: groupRef.id,
-    currency: detectDefaultCurrency(),
+    currency: DEFAULT_CURRENCY,
     openingBalanceMinor: 0,
     archived: false,
     createdAt: now,

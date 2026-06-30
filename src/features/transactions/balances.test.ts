@@ -7,7 +7,7 @@ function account(id: string, openingBalanceMinor: number): Account {
     id,
     name: id,
     groupId: 'g1',
-    currency: 'GBP',
+    currency: 'USD',
     openingBalanceMinor,
     archived: false,
     createdAt: 0,

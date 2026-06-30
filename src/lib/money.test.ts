@@ -2,20 +2,20 @@ import { describe, expect, it } from 'vitest'
 import { formatMoney, minorToInput, parseMoneyToMinor } from './money'
 
 describe('formatMoney', () => {
-  it('formats minor units as GBP', () => {
-    expect(formatMoney(1234)).toBe('£12.34')
-    expect(formatMoney(0)).toBe('£0.00')
+  it('formats minor units as USD', () => {
+    expect(formatMoney(1234)).toBe('$12.34')
+    expect(formatMoney(0)).toBe('$0.00')
   })
 
   it('formats negative amounts', () => {
-    expect(formatMoney(-500)).toBe('-£5.00')
+    expect(formatMoney(-500)).toBe('-$5.00')
   })
 })
 
 describe('parseMoneyToMinor', () => {
   it('parses plain and decorated amounts', () => {
     expect(parseMoneyToMinor('12.34')).toBe(1234)
-    expect(parseMoneyToMinor('£12.34')).toBe(1234)
+    expect(parseMoneyToMinor('$12.34')).toBe(1234)
     expect(parseMoneyToMinor('5')).toBe(500)
     expect(parseMoneyToMinor('-5')).toBe(-500)
   })

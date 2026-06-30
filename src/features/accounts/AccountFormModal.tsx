@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Modal, ModalActions, fieldClass, labelClass } from '../../components/Modal'
 import { logError } from '../../lib/log'
 import { minorToInput, parseMoneyToMinor } from '../../lib/money'
-import { CURRENCIES, detectDefaultCurrency } from '../../lib/currencies'
+import { CURRENCIES, DEFAULT_CURRENCY } from '../../lib/currencies'
 import type { Account, Group } from '../../types/models'
 import { addAccount, propagateAccountGroup, updateAccount } from './api'
 
@@ -21,7 +21,7 @@ export function AccountFormModal({
 }) {
   const [name, setName] = useState(account?.name ?? '')
   const [groupId, setGroupId] = useState(account?.groupId ?? defaultGroupId ?? groups[0]?.id ?? '')
-  const [currency, setCurrency] = useState(account?.currency ?? detectDefaultCurrency())
+  const [currency, setCurrency] = useState(account?.currency ?? DEFAULT_CURRENCY)
   const [opening, setOpening] = useState(
     account ? minorToInput(account.openingBalanceMinor) : '0.00',
   )

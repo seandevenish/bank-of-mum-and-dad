@@ -3,8 +3,8 @@
  * (pence). These functions convert to/from the human-facing major-unit strings.
  */
 
-/** Format minor units (e.g. 1234) as a currency string (e.g. "£12.34"). */
-export function formatMoney(minor: number, currency = 'GBP', locale = 'en-GB'): string {
+/** Format minor units (e.g. 1234) as a currency string (e.g. "$12.34"). */
+export function formatMoney(minor: number, currency = 'USD', locale = 'en-US'): string {
   return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(minor / 100)
 }
 
