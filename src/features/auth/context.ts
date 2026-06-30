@@ -21,6 +21,8 @@ export interface AuthState {
   signInWithEmail: (email: string, password: string) => Promise<void>
   registerWithEmail: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
+  /** Rename the current household (owner/admin only). */
+  updateHouseholdName: (name: string) => Promise<void>
   /** Accept a pending invite and switch into that household. */
   acceptPendingInvite: (invite: Invite) => Promise<void>
   /** Dismiss the invite prompt for this session (keeps the user's own space). */

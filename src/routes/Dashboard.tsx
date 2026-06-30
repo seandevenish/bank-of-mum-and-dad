@@ -13,9 +13,10 @@ import {
   ROLE_LABEL,
   canAccessGroup,
   canManageGroups,
-  canManageMembers,
   canWriteData,
 } from '../features/members/permissions'
+import { HouseholdName } from '../features/auth/HouseholdName'
+import { UserMenu } from '../features/auth/UserMenu'
 import { LoadingScreen } from '../components/LoadingScreen'
 import { logError } from '../lib/log'
 import { formatMoney } from '../lib/money'
@@ -42,7 +43,7 @@ function formatGroupTotals(accounts: Account[], balances: Map<string, number>): 
 }
 
 export function Dashboard() {
-  const { user, household, member, signOut } = useAuth()
+  const { household, member } = useAuth()
   const householdId = household!.id
   const { groups, loading: groupsLoading, error: groupsError } = useGroups()
   const { accounts, loading: accountsLoading, error: accountsError } = useAccounts()
@@ -103,29 +104,9 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">Household</p>
-            <h1 className="text-base font-semibold">{household?.name}</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-slate-500 sm:inline">
-              {user?.email ?? user?.displayName}
-            </span>
-            <Link
-              to="/members"
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              {canManageMembers(member) ? 'Members' : 'My access'}
-            </Link>
-            <button
-              type="button"
-              onClick={() => void signOut()}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Sign out
-            </button>
-          </div>
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
+          <HouseholdName />
+          <UserMenu />
         </div>
       </header>
 

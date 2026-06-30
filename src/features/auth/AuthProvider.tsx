@@ -12,7 +12,7 @@ import { auth } from '../../firebase/config'
 import type { Household, Invite, Member, UserProfile } from '../../types/models'
 import { logError } from '../../lib/log'
 import { AuthContext, type AuthState } from './context'
-import { acceptInvite, createOwnHousehold, resolveMembership } from './household'
+import { acceptInvite, createOwnHousehold, renameHousehold, resolveMembership } from './household'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -86,6 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signOut: async () => {
         await firebaseSignOut(auth)
+      },
+      updateHouseholdName: async (name) => {
+        if (!household) return
+        const trimmed = name.trim()
+        if (!trimmed || trimmed === household.name) return
+        await renameHousehold(household.id, trimmed)
+        setHousehold({ ...household, name: trimmed })
       },
       acceptPendingInvite: async (invite) => {
         if (!user) return

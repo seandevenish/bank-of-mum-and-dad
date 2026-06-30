@@ -7,6 +7,7 @@ import {
   getDocs,
   query,
   setDoc,
+  updateDoc,
   where,
   writeBatch,
 } from 'firebase/firestore'
@@ -143,6 +144,11 @@ async function ensureMemberDoc(user: User, household: Household): Promise<Member
     await setDoc(memberRef, memberData(member))
   }
   return member
+}
+
+/** Rename a household. Allowed for owner/admin by the security rules. */
+export async function renameHousehold(householdId: string, name: string): Promise<void> {
+  await updateDoc(doc(db, 'households', householdId), { name })
 }
 
 /** Accept an invite: join the household and remove the invite, atomically. */
